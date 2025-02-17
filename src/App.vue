@@ -1,10 +1,15 @@
 <template>
-  <nav>
-    <router-link to="/">Home</router-link> |
-    <router-link to="/about">About</router-link>
-  </nav>
-  <router-view/>
+  <div id="app">
+    <router-view />
+  </div>
 </template>
+
+<script setup>
+import store from "@/store";
+if (localStorage.getItem('token')) {
+  store.dispatch('auth/fetchUser')
+}
+</script>
 
 <style lang="scss">
 #app {
@@ -13,6 +18,16 @@
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
+}
+
+:root {
+  --gray-color: #666;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
 }
 
 nav {
