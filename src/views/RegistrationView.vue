@@ -21,9 +21,16 @@
             <label for="email">Email</label>
             <input id="email" v-model="email" type="email" placeholder="your@email.com" required />
           </div>
-          <div class="form-group">
+          <div class="form-group password-group">
             <label for="password">Password</label>
-            <input id="password" v-model="password" type="password" placeholder="••••••••" required />
+            <div class="password-input">
+              <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••"
+                required />
+              <span class="toggle-icon" @click="togglePassword">
+                <img v-if="!showPassword" src="/icons/eye-closed.ico" alt="Show password" />
+                <img v-else src="/icons/eye-open.ico" alt="Hide password" />
+              </span>
+            </div>
           </div>
           <button type="submit" class="register-btn">Register</button>
         </form>
@@ -50,6 +57,7 @@ export default defineComponent({
     const name = ref('')
     const email = ref('')
     const password = ref('')
+    const showPassword = ref(false)
     const errorMessage = ref('')
     const router = useRouter()
     const store = useStore()
@@ -74,10 +82,16 @@ export default defineComponent({
       }
     }
 
+    const togglePassword = () => {
+      showPassword.value = !showPassword.value
+    }
+
     return {
       name,
       email,
       password,
+      showPassword,
+      togglePassword,
       handleRegister,
       errorMessage
     }
@@ -164,6 +178,40 @@ export default defineComponent({
   border-radius: 4px;
 }
 
+.password-group {
+  position: relative;
+}
+
+.password-input {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.password-input input {
+  flex: 1;
+  padding-right: 2.5rem;
+}
+
+.toggle-icon {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-icon img {
+  width: 20px;
+  height: 20px;
+}
+
+.password-input:hover .toggle-icon,
+.password-input:focus-within .toggle-icon {
+  display: flex;
+}
+
 .register-btn {
   width: 100%;
   padding: 0.75rem;
@@ -195,5 +243,9 @@ export default defineComponent({
   margin-top: 1rem;
   font-weight: bold;
   text-align: center;
+}
+
+input[type="password"]::-ms-reveal {
+  display: none;
 }
 </style>

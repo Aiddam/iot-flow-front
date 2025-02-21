@@ -43,7 +43,7 @@
           <div class="user-section" v-show="!isCollapsed">
             <div class="user-info">
               <img src="/icons/user.ico" alt="User icon" class="user-icon" />
-              <span>{{ $store.state.auth.user?.name }}</span>
+              <span>{{ userName }}</span>
             </div>
             <button class="logout-button" @click="logout">Log Out</button>
           </div>
@@ -57,10 +57,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { defineComponent, ref, computed } from 'vue'
 import { useStore } from 'vuex'
-
+import { useRouter } from 'vue-router'
 export default defineComponent({
   name: 'LayoutView',
   setup() {
@@ -77,8 +76,9 @@ export default defineComponent({
       router.push('/login')
       await store.dispatch('auth/clearUser')
     }
+    const userName = computed(() => store.state.auth.user?.name)
 
-    return { isCollapsed, toggleSidebar, logout }
+    return { isCollapsed, toggleSidebar, logout, userName }
   }
 })
 </script>
