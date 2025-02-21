@@ -18,9 +18,16 @@
             <input id="username" v-model="userName" type="text" placeholder="username or email" required />
           </div>
 
-          <div class="form-group">
+          <div class="form-group password-group">
             <label for="password">Password</label>
-            <input id="password" v-model="password" type="password" placeholder="••••••••" required />
+            <div class="password-input">
+              <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••"
+                required />
+              <span class="toggle-icon" @click="togglePassword">
+                <img v-if="!showPassword" src="/icons/eye-closed.ico" alt="Show password" />
+                <img v-else src="/icons/eye-open.ico" alt="Hide password" />
+              </span>
+            </div>
           </div>
 
           <div class="form-bottom">
@@ -31,9 +38,7 @@
             <a href="#" class="forgot-password">Forgot Password?</a>
           </div>
 
-          <button type="submit" class="login-btn">
-            Login
-          </button>
+          <button type="submit" class="login-btn">Login</button>
         </form>
 
         <p class="register-prompt">
@@ -58,6 +63,7 @@ export default defineComponent({
   setup() {
     const userName = ref('')
     const password = ref('')
+    const showPassword = ref(false)
     const errorMessage = ref('')
     const router = useRouter()
     const store = useStore()
@@ -75,13 +81,13 @@ export default defineComponent({
       errorMessage.value = ''
 
       if (!userName.value || !password.value) {
-        errorMessage.value = 'Будь ласка, заповніть усі поля.'
+        errorMessage.value = 'Please fill in all fields.'
         return
       }
 
       if (!validateUserName(userName.value)) {
         errorMessage.value =
-          'Будь ласка, введіть дійсну пошту або ім’я користувача (мінімум 3 символи).'
+          'Please enter a valid email or username (minimum 3 characters).'
         return
       }
 
@@ -102,9 +108,15 @@ export default defineComponent({
       }
     }
 
+    const togglePassword = () => {
+      showPassword.value = !showPassword.value
+    }
+
     return {
       userName,
       password,
+      showPassword,
+      togglePassword,
       handleLogin,
       errorMessage
     }
@@ -132,7 +144,6 @@ export default defineComponent({
 .welcome-wrapper {
   text-align: left;
   padding: 2rem;
-  text-wrap: true;
   font-size: 3.5rem;
   margin-left: 1em;
 }
@@ -140,8 +151,8 @@ export default defineComponent({
 .login-right {
   flex: 1;
   background: #fff;
-  flex-direction: column;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 2rem;
@@ -150,8 +161,7 @@ export default defineComponent({
 .login-header {
   max-width: 350px;
   width: 100%;
-  margin: 0 auto;
-  margin-bottom: 1rem;
+  margin: 0 auto 1rem auto;
   text-align: left;
 }
 
@@ -169,8 +179,6 @@ export default defineComponent({
 .subtitle {
   margin-bottom: 2rem;
   color: var(--gray-color);
-  text-wrap: true;
-  width: 350px;
   text-align: left;
   font-size: 1.2rem;
 }
@@ -193,6 +201,40 @@ export default defineComponent({
   padding: 0.75rem;
   border: 1px solid #ccc;
   border-radius: 4px;
+}
+
+.password-group {
+  position: relative;
+}
+
+.password-input {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.password-input input {
+  flex: 1;
+  padding-right: 2.5rem;
+}
+
+.toggle-icon {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-icon img {
+  width: 20px;
+  height: 20px;
+}
+
+.password-input:hover .toggle-icon,
+.password-input:focus-within .toggle-icon {
+  display: flex;
 }
 
 .form-bottom {
@@ -248,5 +290,9 @@ export default defineComponent({
   margin-top: 1rem;
   font-weight: bold;
   text-align: center;
+}
+
+input[type="password"]::-ms-reveal {
+  display: none;
 }
 </style>

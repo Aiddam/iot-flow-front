@@ -58,6 +58,7 @@ apiClient.interceptors.response.use(
       isRefreshing = true
 
       try {
+        console.log("Refreshing token")
         const { data } = await apiClient.post('api/jwt-auth/refresh')
         const newToken = data.token
 
