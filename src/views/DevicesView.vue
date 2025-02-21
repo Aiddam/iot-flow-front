@@ -35,7 +35,7 @@
     </DataTable>
 
     <Dialog :header="isEditMode ? 'Edit device' : 'Create device'" v-model:visible="displayDialog" modal
-      :closable="false" style="width: 22rem">
+      :closable="false" style="width: 40rem">
       <div v-if="editableDevice">
         <div class="field" v-if="isEditMode">
           <label for="deviceGuid">GUID</label>
@@ -44,13 +44,56 @@
         <div class="field">
           <label for="name">Name</label>
           <InputText id="name" v-model="editableDevice.name" style="width: 100%" />
-          <small v-if="editableDevice.name && !isNameValid" class="error">Name має містити не менше 3 символів</small>
+          <small v-if="editableDevice.name && !isNameValid" class="error">
+            Name must contain at least 3 characters
+          </small>
+        </div>
+        <div class="field" v-if="isEditMode && editableDevice.methods && editableDevice.methods.length">
+          <label>Methods</label>
+          <DataTable :value="editableDevice.methods" tableStyle="min-width: 20rem" scrollable scrollHeight="200px"
+            selectionMode="single" v-model:selection="selectedMethodForCommand">
+            <Column field="methodName" header="Method Name"></Column>
+            <Column field="description" header="Description"></Column>
+            <Column header="Type">
+              <template #body="slotProps">
+                {{ methodTypeToString(slotProps.data.methodType) }}
+              </template>
+            </Column>
+          </DataTable>
         </div>
       </div>
       <template #footer>
         <Button label="Close" icon="pi pi-times" @click="closeDialog" class="p-button-secondary" />
+        <Button label="SendCommand" icon="pi pi-send" @click="onSendCommandClick" class="p-button-warning"
+          v-if="isEditMode" />
         <Button label="Save And Close" icon="pi pi-check" @click="saveDevice" class="p-button-success"
           :disabled="!isModified || !isNameValid" />
+      </template>
+    </Dialog>
+
+    <Dialog header="Send Command" v-model:visible="displayCommandDialog" modal :closable="false" style="width: 30rem">
+      <div>
+        <div v-if="selectedMethod && selectedMethod.parameters && selectedMethod.parameters.length">
+          <label>Parameters</label>
+          <div v-for="(param, index) in selectedMethod.parameters" :key="index" class="field">
+            <label :for="'param-' + index">{{ param.parametrName }} ({{ param.type }})</label>
+            <InputText v-if="param.type === ParameterType.String" :id="'param-' + index"
+              v-model="commandParameters[param.parametrName]" style="width: 100%" />
+            <InputText v-else-if="param.type === ParameterType.Int" :id="'param-' + index"
+              v-model.number="commandParameters[param.parametrName]" style="width: 100%" />
+            <InputSwitch v-else-if="param.type === ParameterType.Bool" :id="'param-' + index"
+              v-model="commandParameters[param.parametrName]" />
+            <InputText v-else :id="'param-' + index" v-model="commandParameters[param.parametrName]"
+              style="width: 100%" />
+          </div>
+        </div>
+        <div v-else>
+          <p>The selected method has no parameters.</p>
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Cancel" icon="pi pi-times" @click="closeCommandDialog" class="p-button-secondary" />
+        <Button label="Send" icon="pi pi-check" @click="sendCommand" :disabled="!selectedMethod" />
       </template>
     </Dialog>
   </div>
@@ -64,18 +107,25 @@ import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import RadioButton from 'primevue/radiobutton'
-import { getDevices, updateDevice, createDevice, deleteDevice } from '@/api/services/deviceService'
+import InputSwitch from 'primevue/inputswitch'
+import { getDevices, updateDevice, createDevice, deleteDevice, sendDeviceCommand } from '@/api/services/deviceService'
 import { Device } from '@/types/device/Device'
 import { DevicePayload } from '@/types/device/DevicePayload'
+import { MethodPayload } from '@/types/device/MethodPayload'
+import { ParametrPayload } from '@/types/device/ParamertPayload'
+import { MethodType } from '@/types/enums/MethodType'
+import { ParameterType } from '@/types/enums/ParameterType'
 
 const devices = ref<Device[]>([])
 const selectedDevice = ref<Device | null>(null)
 const displayDialog = ref(false)
 const isEditMode = ref(true)
 
+
 const editableDevice = reactive<Device>({
   deviceGuid: '',
-  name: ''
+  name: '',
+  methods: []
 })
 
 const originalDevice = ref<Device | null>(null)
@@ -83,11 +133,20 @@ const originalDevice = ref<Device | null>(null)
 const fetchDevices = async () => {
   try {
     devices.value = await getDevices()
+    console.log(devices.value)
   } catch (error) {
-    console.error('Помилка при отриманні девайсів:', error)
+    console.error('Error when receiving devices:', error)
   }
 }
 
+const methodTypeToString = (type: number): string => {
+  switch (type) {
+    case MethodType.Void: return "Void";
+    case MethodType.Int: return "Int";
+    case MethodType.String: return "String";
+    default: return "Unknown";
+  }
+}
 const formatDate = (dateValue: Date | string | null): string => {
   if (!dateValue) return ''
   const date = new Date(dateValue)
@@ -119,7 +178,8 @@ const onCreateClick = () => {
   isEditMode.value = false
   editableDevice.deviceGuid = ''
   editableDevice.name = ''
-  originalDevice.value = { deviceGuid: '', name: '' }
+  editableDevice.methods = []
+  originalDevice.value = { deviceGuid: '', name: '', methods: [] }
   displayDialog.value = true
 }
 
@@ -142,6 +202,7 @@ const saveDevice = async () => {
     console.error('Error when saving a device:', error)
   }
 }
+
 const onDeleteDevice = async (device: Device) => {
   try {
     await deleteDevice(device.deviceGuid)
@@ -153,10 +214,57 @@ const onDeleteDevice = async (device: Device) => {
 
 const onRebootDevice = async (device: Device) => {
   try {
-    console.log("rebootDevice", device.deviceGuid)
+    console.log('rebootDevice', device.deviceGuid)
     await fetchDevices()
   } catch (error) {
     console.error('Error when reloading a device:', error)
+  }
+}
+
+const selectedMethodForCommand = ref<MethodPayload | null>(null)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const commandParameters = reactive<Record<string, any>>({})
+const selectedMethod = ref<MethodPayload | null>(null)
+const displayCommandDialog = ref(false)
+
+const onSendCommandClick = () => {
+  if (!selectedMethodForCommand.value) {
+    alert('Please select the method from the table you want to execute.')
+    return
+  }
+  selectedMethod.value = selectedMethodForCommand.value
+  // Обнуляємо параметри
+  for (const key in commandParameters) {
+    delete commandParameters[key]
+  }
+  if (selectedMethod.value.parameters && selectedMethod.value.parameters.length) {
+    displayCommandDialog.value = true
+  } else {
+    sendCommand()
+  }
+}
+
+const closeCommandDialog = () => {
+  displayCommandDialog.value = false
+}
+
+const sendCommand = async () => {
+  if (!editableDevice.deviceGuid || !selectedMethod.value) return
+  const parametersArray = selectedMethod.value.parameters.map((param: ParametrPayload) => ({
+    parametrName: param.parametrName,
+    type: param.type,
+    value: commandParameters[param.parametrName]
+  }))
+  const payload: MethodPayload = {
+    methodName: selectedMethod.value.methodName,
+    parameters: parametersArray
+  }
+  try {
+    const response = await sendDeviceCommand(editableDevice.deviceGuid, payload)
+    console.log('Command sent', response.data)
+    displayCommandDialog.value = false
+  } catch (error) {
+    console.error('Error sending command:', error)
   }
 }
 
