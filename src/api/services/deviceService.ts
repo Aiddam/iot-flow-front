@@ -1,6 +1,7 @@
 import { DevicePayload } from '@/types/device/DevicePayload'
 import apiClient from '../index'
 import { Device } from '@/types/device/Device';
+import { MethodPayload } from '@/types/device/MethodPayload';
 
 export async function getDevices() {
   const response = await apiClient.get('/api/devices')
@@ -17,4 +18,8 @@ export async function createDevice(device: DevicePayload): Promise<Device> {
 export async function deleteDevice(deviceGuid: string): Promise<void> {
   const response = await apiClient.delete(`/api/devices/${deviceGuid}`)
   return response.data
+}
+export async function sendDeviceCommand(deviceGuid: string, payload: MethodPayload) {
+  const response = await apiClient.post(`/api/devices/${deviceGuid}/command/send`, payload)
+  return response
 }
