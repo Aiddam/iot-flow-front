@@ -45,7 +45,7 @@
           <label for="name">Name</label>
           <InputText id="name" v-model="editableDevice.name" style="width: 100%" />
           <small v-if="editableDevice.name && !isNameValid" class="error">
-            Name має містити не менше 3 символів
+            Name must contain at least 3 characters
           </small>
         </div>
         <div class="field" v-if="isEditMode && editableDevice.methods && editableDevice.methods.length">
@@ -54,7 +54,11 @@
             selectionMode="single" v-model:selection="selectedMethodForCommand">
             <Column field="methodName" header="Method Name"></Column>
             <Column field="description" header="Description"></Column>
-            <Column field="type" header="Type"></Column>
+            <Column header="Type">
+              <template #body="slotProps">
+                {{ methodTypeToString(slotProps.data.methodType) }}
+              </template>
+            </Column>
           </DataTable>
         </div>
       </div>
@@ -73,7 +77,6 @@
           <label>Parameters</label>
           <div v-for="(param, index) in selectedMethod.parameters" :key="index" class="field">
             <label :for="'param-' + index">{{ param.parametrName }} ({{ param.type }})</label>
-            <!-- Відображення поля залежно від типу -->
             <InputText v-if="param.type === ParameterType.String" :id="'param-' + index"
               v-model="commandParameters[param.parametrName]" style="width: 100%" />
             <InputText v-else-if="param.type === ParameterType.Int" :id="'param-' + index"
@@ -85,7 +88,7 @@
           </div>
         </div>
         <div v-else>
-          <p>Обраний метод не має параметрів.</p>
+          <p>The selected method has no parameters.</p>
         </div>
       </div>
       <template #footer>
@@ -110,19 +113,14 @@ import { Device } from '@/types/device/Device'
 import { DevicePayload } from '@/types/device/DevicePayload'
 import { MethodPayload } from '@/types/device/MethodPayload'
 import { ParametrPayload } from '@/types/device/ParamertPayload'
-
-// Enum для C# типів
-enum ParameterType {
-  String = 'string',
-  Int = 'int',
-  Bool = 'bool'
-  // можна додати інші типи за потребою
-}
+import { MethodType } from '@/types/enums/MethodType'
+import { ParameterType } from '@/types/enums/ParameterType'
 
 const devices = ref<Device[]>([])
 const selectedDevice = ref<Device | null>(null)
 const displayDialog = ref(false)
 const isEditMode = ref(true)
+
 
 const editableDevice = reactive<Device>({
   deviceGuid: '',
@@ -141,6 +139,14 @@ const fetchDevices = async () => {
   }
 }
 
+const methodTypeToString = (type: number): string => {
+  switch (type) {
+    case MethodType.Void: return "Void";
+    case MethodType.Int: return "Int";
+    case MethodType.String: return "String";
+    default: return "Unknown";
+  }
+}
 const formatDate = (dateValue: Date | string | null): string => {
   if (!dateValue) return ''
   const date = new Date(dateValue)
