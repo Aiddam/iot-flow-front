@@ -3,6 +3,6 @@ export interface Method {
   description: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type: any;
-  parameters: Parametr[];
+  parameters: Parameter[];
 
 }

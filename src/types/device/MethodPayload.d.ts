@@ -1,5 +1,5 @@
-import { ParametrPayload } from './ParametrPayload';
+import { ParameterPayload } from './ParameterPayload';
 export interface MethodPayload {
   methodName: string;
-  parameters: ParametrPayload[];
+  parameters: ParameterPayload[];
 }

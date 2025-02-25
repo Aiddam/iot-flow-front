@@ -4,7 +4,6 @@
     <div class="actions">
       <Button label="Create Device" icon="pi pi-plus" @click="onCreateClick" class="p-mb-3" />
     </div>
-
     <DataTable :value="devices" tableStyle="min-width: 50rem" selectionMode="single" v-model:selection="selectedDevice"
       paginator :rows="10" :rowsPerPageOptions="[5, 10, 20, 50]" scrollable scrollHeight="550px"
       @row-dblclick="onRowDblClick">
@@ -76,14 +75,16 @@
         <div v-if="selectedMethod && selectedMethod.parameters && selectedMethod.parameters.length">
           <label>Parameters</label>
           <div v-for="(param, index) in selectedMethod.parameters" :key="index" class="field">
-            <label :for="'param-' + index">{{ param.parametrName }} ({{ param.type }})</label>
-            <InputText v-if="param.type === ParameterType.String" :id="'param-' + index"
-              v-model="commandParameters[param.parametrName]" style="width: 100%" />
-            <InputText v-else-if="param.type === ParameterType.Int" :id="'param-' + index"
-              v-model.number="commandParameters[param.parametrName]" style="width: 100%" />
-            <InputSwitch v-else-if="param.type === ParameterType.Bool" :id="'param-' + index"
-              v-model="commandParameters[param.parametrName]" />
-            <InputText v-else :id="'param-' + index" v-model="commandParameters[param.parametrName]"
+            <label :for="'param-' + index">
+              {{ param.parameterName }} ({{ parameterTypeToString(param.parameterType) }})
+            </label>
+            <InputText v-if="param.parameterType === ParameterType.String" :id="'param-' + index"
+              v-model="commandParameters[param.parameterName]" style="width: 100%" />
+            <InputNumber v-else-if="param.parameterType === ParameterType.Int" :id="'param-' + index"
+              v-model.number="commandParameters[param.parameterName]" style="width: 100%" />
+            <InputSwitch v-else-if="param.parameterType === ParameterType.Bool" :id="'param-' + index"
+              v-model="commandParameters[param.parameterName]" />
+            <InputText v-else :id="'param-' + index" v-model="commandParameters[param.parameterName]"
               style="width: 100%" />
           </div>
         </div>
@@ -112,15 +113,16 @@ import { getDevices, updateDevice, createDevice, deleteDevice, sendDeviceCommand
 import { Device } from '@/types/device/Device'
 import { DevicePayload } from '@/types/device/DevicePayload'
 import { MethodPayload } from '@/types/device/MethodPayload'
-import { ParametrPayload } from '@/types/device/ParamertPayload'
 import { MethodType } from '@/types/enums/MethodType'
 import { ParameterType } from '@/types/enums/ParameterType'
+import { Method } from '@/types/device/Method'
+import { Parameter } from '@/types/device/Parameter'
+import { InputNumber } from 'primevue'
 
 const devices = ref<Device[]>([])
 const selectedDevice = ref<Device | null>(null)
 const displayDialog = ref(false)
 const isEditMode = ref(true)
-
 
 const editableDevice = reactive<Device>({
   deviceGuid: '',
@@ -133,7 +135,6 @@ const originalDevice = ref<Device | null>(null)
 const fetchDevices = async () => {
   try {
     devices.value = await getDevices()
-    console.log(devices.value)
   } catch (error) {
     console.error('Error when receiving devices:', error)
   }
@@ -147,6 +148,24 @@ const methodTypeToString = (type: number): string => {
     default: return "Unknown";
   }
 }
+
+const parameterTypeToString = (type: number): string => {
+  switch (type) {
+    case ParameterType.Int:
+      return "Int";
+    case ParameterType.String:
+      return "String";
+    case ParameterType.Double:
+      return "Double";
+    case ParameterType.Bool:
+      return "Bool";
+    case ParameterType.DateTime:
+      return "DateTime";
+    default:
+      return "Unknown";
+  }
+}
+
 const formatDate = (dateValue: Date | string | null): string => {
   if (!dateValue) return ''
   const date = new Date(dateValue)
@@ -208,23 +227,22 @@ const onDeleteDevice = async (device: Device) => {
     await deleteDevice(device.deviceGuid)
     await fetchDevices()
   } catch (error) {
-    console.error('Error when deleteing a device:', error)
+    console.error('Error when deleting a device:', error)
   }
 }
 
 const onRebootDevice = async (device: Device) => {
   try {
-    console.log('rebootDevice', device.deviceGuid)
     await fetchDevices()
   } catch (error) {
-    console.error('Error when reloading a device:', error)
+    console.error('Error when rebooting a device:', error)
   }
 }
 
-const selectedMethodForCommand = ref<MethodPayload | null>(null)
+const selectedMethodForCommand = ref<Method | null>(null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const commandParameters = reactive<Record<string, any>>({})
-const selectedMethod = ref<MethodPayload | null>(null)
+const selectedMethod = ref<Method | null>(null)
 const displayCommandDialog = ref(false)
 
 const onSendCommandClick = () => {
@@ -250,10 +268,10 @@ const closeCommandDialog = () => {
 
 const sendCommand = async () => {
   if (!editableDevice.deviceGuid || !selectedMethod.value) return
-  const parametersArray = selectedMethod.value.parameters.map((param: ParametrPayload) => ({
-    parametrName: param.parametrName,
-    type: param.type,
-    value: commandParameters[param.parametrName]
+  const parametersArray = selectedMethod.value.parameters.map((param: Parameter) => ({
+    parameterName: param.parameterName,
+    parameterType: parameterTypeToString(param.parameterType),
+    value: String(commandParameters[param.parameterName])
   }))
   const payload: MethodPayload = {
     methodName: selectedMethod.value.methodName,
