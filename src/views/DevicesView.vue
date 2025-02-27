@@ -58,6 +58,13 @@
                 {{ methodTypeToString(slotProps.data.methodType) }}
               </template>
             </Column>
+            <Column header="Show Result">
+              <template #body="slotProps">
+                <Button class="custom-icon-btn" @click="showRegistryResult(slotProps.data)">
+                  <img src="/icons/eye-open.ico" alt="reboot" class="icon-image" />
+                </Button>
+              </template>
+            </Column>
           </DataTable>
         </div>
       </div>
@@ -74,7 +81,7 @@
       <div>
         <div v-if="selectedMethod && selectedMethod.parameters && selectedMethod.parameters.length">
           <label>Parameters</label>
-          <div v-for="(param, index) in selectedMethod.parameters" :key="index" class="field">
+          <div v-for="(param, index) in selectedMethod.parameters.slice().reverse()" :key="index" class="field">
             <label :for="'param-' + index">
               {{ param.parameterName }} ({{ parameterTypeToString(param.parameterType) }})
             </label>
@@ -82,7 +89,7 @@
               v-model="commandParameters[param.parameterName]" style="width: 100%" />
             <InputNumber v-else-if="param.parameterType === ParameterType.Int" :id="'param-' + index"
               v-model.number="commandParameters[param.parameterName]" style="width: 100%" />
-            <InputSwitch v-else-if="param.parameterType === ParameterType.Bool" :id="'param-' + index"
+            <ToggleSwitch v-else-if="param.parameterType === ParameterType.Bool" :id="'param-' + index"
               v-model="commandParameters[param.parameterName]" />
             <InputText v-else :id="'param-' + index" v-model="commandParameters[param.parameterName]"
               style="width: 100%" />
@@ -97,6 +104,36 @@
         <Button label="Send" icon="pi pi-check" @click="sendCommand" :disabled="!selectedMethod" />
       </template>
     </Dialog>
+
+    <Dialog header="Registry Result" v-model:visible="registryResult.visible" modal :closable="true"
+      style="width: 30rem">
+      <div>
+        <template v-if="registryResult.status === 1">
+          <p>Request made successfully</p>
+          <p>Message: {{ registryResult.message }}</p>
+          <template v-if="registryResult.responseReceivedAt">
+            <p>Request execution time: {{ formatDate(registryResult.responseReceivedAt) }}</p>
+          </template>
+          <template v-if="registryResult.method && registryResult.method.methodType !== MethodType.Void">
+            <p>Result: {{ registryResult.result }}</p>
+          </template>
+        </template>
+        <template v-else-if="registryResult.status === 2">
+          <div style="text-align: center">
+            <p>The request is still being processed</p>
+          </div>
+        </template>
+        <template v-else-if="registryResult.status === 3">
+          <p>Oops! An error occurred during the request: {{ registryResult.message }}</p>
+        </template>
+        <template v-else>
+          <p>No data available</p>
+        </template>
+      </div>
+      <template #footer>
+        <Button label="Close" icon="pi pi-times" @click="registryResult.visible = false" class="p-button-secondary" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -108,8 +145,9 @@ import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import RadioButton from 'primevue/radiobutton'
-import InputSwitch from 'primevue/inputswitch'
+import ToggleSwitch from 'primevue/toggleswitch'
 import { getDevices, updateDevice, createDevice, deleteDevice, sendDeviceCommand } from '@/api/services/deviceService'
+import { getMethodRegisterResult } from '@/api/services/methodRegisterService'
 import { Device } from '@/types/device/Device'
 import { DevicePayload } from '@/types/device/DevicePayload'
 import { MethodPayload } from '@/types/device/MethodPayload'
@@ -117,7 +155,8 @@ import { MethodType } from '@/types/enums/MethodType'
 import { ParameterType } from '@/types/enums/ParameterType'
 import { Method } from '@/types/device/Method'
 import { Parameter } from '@/types/device/Parameter'
-import { InputNumber } from 'primevue'
+import InputNumber from 'primevue/inputnumber'
+import { MethodRegisterResult } from '@/types/methodRegister/MethodRegisterResult'
 
 const devices = ref<Device[]>([])
 const selectedDevice = ref<Device | null>(null)
@@ -251,7 +290,6 @@ const onSendCommandClick = () => {
     return
   }
   selectedMethod.value = selectedMethodForCommand.value
-  // Обнуляємо параметри
   for (const key in commandParameters) {
     delete commandParameters[key]
   }
@@ -278,13 +316,45 @@ const sendCommand = async () => {
     parameters: parametersArray
   }
   try {
-    const response = await sendDeviceCommand(editableDevice.deviceGuid, payload)
-    console.log('Command sent', response.data)
+    await sendDeviceCommand(editableDevice.deviceGuid, payload)
     displayCommandDialog.value = false
   } catch (error) {
     console.error('Error sending command:', error)
   }
 }
+
+const registryResult = reactive({
+  visible: false,
+  status: 0,
+  result: '',
+  message: '',
+  method: null as Method | null,
+  responseReceivedAt: ''
+});
+
+const getRegistryResult = async (deviceGuid: string, methodName: string): Promise<MethodRegisterResult> => {
+  const methodRegisterResult = await getMethodRegisterResult(deviceGuid, methodName);
+  return methodRegisterResult;
+};
+
+const showRegistryResult = async (method: Method) => {
+  registryResult.visible = true;
+  try {
+    const response = await getRegistryResult(editableDevice.deviceGuid, method.methodName);
+    registryResult.status = response.status;
+    registryResult.result = response.result;
+    registryResult.message = response.message;
+    registryResult.method = response.method;
+    registryResult.responseReceivedAt = response.responseReceivedAt;
+  } catch (error) {
+    registryResult.status = 0;
+    registryResult.message = '';
+    registryResult.result = '';
+    registryResult.method = null;
+    registryResult.responseReceivedAt = '';
+    registryResult.visible = true;
+  }
+};
 
 onMounted(() => {
   fetchDevices()
